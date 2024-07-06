@@ -1,6 +1,3 @@
-// Double-buffered 8-bit Adafruit_GFX-compatible framebuffer for PicoDVI.
-// Animates without redraw flicker. Requires Adafruit_GFX >= 1.11.4
-
 #include <PicoDVI.h>
 #include "SerialGFXInterface_atGPU.hpp"
 
@@ -12,6 +9,8 @@
 // Pico DVI Sock ('pico_sock_cfg').
 DVIGFX8 dviGFX(DVI_RES_320x240p60, true, adafruit_feather_dvi_cfg);
 halvoeGPU::atGPU::SerialGFXInterface serialGFXInterface(Serial1, dviGFX);
+const unsigned long g_readySignalInterval = 1000;
+elapsedMillis g_readySignalTimer;
 
 const uint16_t g_colorCount = 256;
 String g_inText;
@@ -20,7 +19,7 @@ void setup()
 {
   Serial.begin(9600);
   while (not Serial) { delay(1000); }
-  Serial.println("gpu serial usb ready");
+  Serial.println("gpu serial to usb ready");
 
   if (not serialGFXInterface.begin())
   {
@@ -34,6 +33,7 @@ void setup()
   }
 
   dviGFX.swap(false, true); // Duplicate same palette into front & back buffers
+  serialGFXInterface.enablePrintFPS();
 }
 
 void loop()
@@ -41,5 +41,10 @@ void loop()
   if (serialGFXInterface.receiveCommand())
   {
     serialGFXInterface.runCommand();
+    g_readySignalTimer = 0;
+  }
+  else if (g_readySignalTimer >= g_readySignalInterval)
+  {
+    serialGFXInterface.sendCode(halvoeGPU::SerialGFXCode::gpuIsReady);
   }
 }

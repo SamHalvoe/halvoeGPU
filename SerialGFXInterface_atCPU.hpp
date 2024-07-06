@@ -101,21 +101,17 @@ namespace halvoeGPU
           m_serial(io_serial)
         {}
 
-        bool begin(unsigned long in_baud = 9600)
+        bool begin(SerialGFXBaud in_baud = SerialGFXBaud::DEFAULT)
         {
-          m_serial.begin(in_baud);
+          m_serial.begin(fromSerialGFXBaud(in_baud));
           elapsedMillis timeSinceBegin;
-
-          while (not m_serial && timeSinceBegin < 10000)
-          {}
-
+          while (not m_serial && timeSinceBegin < 10000) {}
           return m_serial;
         }
 
         bool sendSwap()
         {
           clearBuffer();
-
           return sendCommand(SerialGFXCommandCode::swap);
         }
 
