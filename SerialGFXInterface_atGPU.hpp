@@ -36,16 +36,11 @@ namespace halvoeGPU
         {
           if (m_parameterBufferLength < 10) { return; }
 
-          char* parameterBufferView_0 = m_parameterBuffer.data();
-          char* parameterBufferView_1 = parameterBufferView_0 + 2;
-          char* parameterBufferView_2 = parameterBufferView_0 + 4;
-          char* parameterBufferView_3 = parameterBufferView_0 + 6;
-          char* parameterBufferView_4 = parameterBufferView_0 + 8;
-          int16_t x      = *reinterpret_cast<int16_t*>(parameterBufferView_0);
-          int16_t y      = *reinterpret_cast<int16_t*>(parameterBufferView_1);
-          int16_t width  = *reinterpret_cast<int16_t*>(parameterBufferView_2);
-          int16_t height = *reinterpret_cast<int16_t*>(parameterBufferView_3);
-          uint16_t color = *reinterpret_cast<uint16_t*>(parameterBufferView_4);
+          int16_t x      = *reinterpret_cast<int16_t*>(m_parameterBuffer.data());
+          int16_t y      = *reinterpret_cast<int16_t*>(m_parameterBuffer.data() + 2);
+          int16_t width  = *reinterpret_cast<int16_t*>(m_parameterBuffer.data() + 4);
+          int16_t height = *reinterpret_cast<int16_t*>(m_parameterBuffer.data() + 6);
+          uint16_t color = *reinterpret_cast<uint16_t*>(m_parameterBuffer.data() + 8);
 
           m_dviGFX.fillRect(x, y, width, height, color);
         }
@@ -77,17 +72,13 @@ namespace halvoeGPU
 
           if (m_serial.available() >= 4)
           {
-            Serial.println("m_serial.available() >= 4");
-
             size_t receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), 2);
             if (receivedBytesCount != 2) { return false; }
             m_receivedCommandCode = toSerialGFXCommandCode(*reinterpret_cast<uint16_t*>(m_commandBuffer.data()));
-            Serial.println(fromSerialGFXCommandCode(m_receivedCommandCode));
 
             receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), 2);
             if (receivedBytesCount != 2) { return false; }
             m_parameterBufferLength = *reinterpret_cast<uint16_t*>(m_commandBuffer.data());
-            Serial.println(m_parameterBufferLength);
 
             receivedBytesCount = m_serial.readBytes(m_parameterBuffer.data(), m_parameterBufferLength);
             if (receivedBytesCount != m_parameterBufferLength) { return false; }

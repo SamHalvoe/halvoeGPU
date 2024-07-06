@@ -2,7 +2,6 @@
 
 #include <elapsedMillis.h>
 #include <array>
-#include <cstring>
 
 #include "SerialGFXInterface.hpp"
 
@@ -21,23 +20,16 @@ namespace halvoeGPU
       private:
         bool sendCommand(SerialGFXCommandCode in_commandCode)
         {
-          //m_serial.availableForWrite();
           *reinterpret_cast<uint16_t*>(m_commandBuffer.data()) = fromSerialGFXCommandCode(in_commandCode);
           size_t bytesWritten = m_serial.write(m_commandBuffer.data(), 2);
-          Serial.print("m_serial.write 0: ");
-          Serial.println(bytesWritten);
           if (bytesWritten != 2) { return false; }
           *reinterpret_cast<uint16_t*>(m_commandBuffer.data()) = m_parameterBufferLength;
           bytesWritten = m_serial.write(m_commandBuffer.data(), 2);
-          Serial.print("m_serial.write 1: ");
-          Serial.println(bytesWritten);
           if (bytesWritten != 2) { return false; }
 
           if (m_parameterBufferLength > 0)
           {
             bytesWritten = m_serial.write(m_parameterBuffer.data(), m_parameterBufferLength);
-            Serial.print("m_serial.write 2: ");
-            Serial.println(bytesWritten);
             if (bytesWritten != m_parameterBufferLength) { return false; }
           }
 
@@ -49,64 +41,55 @@ namespace halvoeGPU
           m_parameterBufferLength = 0;
         }
 
+        template<typename ValueType>
+        bool setValueInBufferAt(ValueType in_value, uint16_t in_position)
+        {
+          if (m_parameterBufferLength + sizeof(ValueType) > m_parameterBuffer.size()) { return false; }
+          *reinterpret_cast<ValueType*>(m_parameterBuffer.data() + in_position) = in_value;
+          return true;
+        }
+
         bool addBoolToBuffer(bool in_value)
         {
-          if (m_parameterBufferLength + 1 > m_parameterBuffer.size()) { return false; }
-
-          std::memcpy(m_parameterBuffer.data() + m_parameterBufferLength, &in_value, 1);
-          m_parameterBufferLength = m_parameterBufferLength + 1;
-
+          if (not setValueInBufferAt<bool>(in_value, m_parameterBufferLength)) { return false; }
+          m_parameterBufferLength = m_parameterBufferLength + sizeof(bool);
           return true;
         }
 
         bool addInt8ToBuffer(int8_t in_value)
         {
-          if (m_parameterBufferLength + 1 > m_parameterBuffer.size()) { return false; }
-
-          std::memcpy(m_parameterBuffer.data() + m_parameterBufferLength, &in_value, 1);
-          m_parameterBufferLength = m_parameterBufferLength + 1;
-
+          if (not setValueInBufferAt<int8_t>(in_value, m_parameterBufferLength)) { return false; }
+          m_parameterBufferLength = m_parameterBufferLength + sizeof(int8_t);
           return true;
         }
 
         bool addUInt8ToBuffer(uint8_t in_value)
         {
-          if (m_parameterBufferLength + 1 > m_parameterBuffer.size()) { return false; }
-
-          std::memcpy(m_parameterBuffer.data() + m_parameterBufferLength, &in_value, 1);
-          m_parameterBufferLength = m_parameterBufferLength + 1;
-
+          if (not setValueInBufferAt<uint8_t>(in_value, m_parameterBufferLength)) { return false; }
+          m_parameterBufferLength = m_parameterBufferLength + sizeof(uint8_t);
           return true;
         }
 
         bool addInt16ToBuffer(int16_t in_value)
         {
-          if (m_parameterBufferLength + 2 > m_parameterBuffer.size()) { return false; }
-          
-          std::memcpy(m_parameterBuffer.data() + m_parameterBufferLength, &in_value, 2);
-          m_parameterBufferLength = m_parameterBufferLength + 2;
-
+          if (not setValueInBufferAt<int16_t>(in_value, m_parameterBufferLength)) { return false; }
+          m_parameterBufferLength = m_parameterBufferLength + sizeof(int16_t);
           return true;
         }
 
         bool addUInt16ToBuffer(uint16_t in_value)
         {
-          if (m_parameterBufferLength + 2 > m_parameterBuffer.size()) { return false; }
-          
-          std::memcpy(m_parameterBuffer.data() + m_parameterBufferLength, &in_value, 2);
-          m_parameterBufferLength = m_parameterBufferLength + 2;
-
+          if (not setValueInBufferAt<uint16_t>(in_value, m_parameterBufferLength)) { return false; }
+          m_parameterBufferLength = m_parameterBufferLength + sizeof(uint16_t);
           return true;
         }
 
         bool addStringToBuffer(const String& in_string)
         {
           uint16_t stringLength = in_string.length();
+          if (m_parameterBufferLength + sizeof(uint16_t) + stringLength > m_parameterBuffer.size()) { return false; }
 
-          if (m_parameterBufferLength + 2 + stringLength > m_parameterBuffer.size()) { return false; }
-
-          std::memcpy(m_parameterBuffer.data() + m_parameterBufferLength, &stringLength, 2);
-          m_parameterBufferLength = m_parameterBufferLength + 2;
+          if (not addUInt16ToBuffer(stringLength)) { return false; }
           in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength);
           m_parameterBufferLength = m_parameterBufferLength + stringLength;
 
