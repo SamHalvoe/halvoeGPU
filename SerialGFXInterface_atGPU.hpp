@@ -13,24 +13,13 @@ namespace halvoeGPU
     class SerialGFXInterface
     {
       private:
-        enum class ReceiveState : uint8_t
-        {
-          null = 0,
-          receiveCommand,
-          receiveParameters
-        };
-
-      private:
-        SerialUART& m_serial;
+        HALVOE_SERIAL_TYPE& m_serial;
         DVIGFX8& m_dviGFX;
 
         SerialGFXCommandCode m_receivedCommandCode = SerialGFXCommandCode::noCommand;
-        uint16_t m_parameterCount = 0;
-        std::array<bool, 8> m_boolBuffer;
-        std::array<int16_t, 16> m_intBuffer;
-        std::array<uint16_t, 16> m_uintBuffer;
-        std::array<String, 8> m_stringBuffer;
-        ReceiveState m_receiveState = ReceiveState::receiveCommand;
+        uint16_t m_parameterBufferLength = 0;
+        std::array<char, 2> m_commandBuffer;
+        std::array<char, g_maxParameterBufferLength> m_parameterBuffer;
 
       private:
         void dviGFX_swap()
@@ -40,11 +29,29 @@ namespace halvoeGPU
 
         void dviGFX_fillScreen()
         {
-          dviGFX.fillScreen(0);
+          m_dviGFX.fillScreen(0);
+        }
+
+        void dviGFX_fillRect()
+        {
+          if (m_parameterBufferLength < 10) { return; }
+
+          char* parameterBufferView_0 = m_parameterBuffer.data();
+          char* parameterBufferView_1 = parameterBufferView_0 + 2;
+          char* parameterBufferView_2 = parameterBufferView_0 + 4;
+          char* parameterBufferView_3 = parameterBufferView_0 + 6;
+          char* parameterBufferView_4 = parameterBufferView_0 + 8;
+          int16_t x      = *reinterpret_cast<int16_t*>(parameterBufferView_0);
+          int16_t y      = *reinterpret_cast<int16_t*>(parameterBufferView_1);
+          int16_t width  = *reinterpret_cast<int16_t*>(parameterBufferView_2);
+          int16_t height = *reinterpret_cast<int16_t*>(parameterBufferView_3);
+          uint16_t color = *reinterpret_cast<uint16_t*>(parameterBufferView_4);
+
+          m_dviGFX.fillRect(x, y, width, height, color);
         }
 
       public:
-        SerialGFXInterface(SerialUART& io_serial, DVIGFX8& io_dviGFX) :
+        SerialGFXInterface(HALVOE_SERIAL_TYPE& io_serial, DVIGFX8& io_dviGFX) :
           m_serial(io_serial), m_dviGFX(io_dviGFX)
         {}
 
@@ -64,71 +71,47 @@ namespace halvoeGPU
           return m_serial;
         }
         
-        int32_t receiveCommand()
+        bool receiveCommand()
         {
-          if (m_receivedCommandCode != SerialGFXCommandCode::noCommand) { return -1; }
+          if (m_receivedCommandCode != SerialGFXCommandCode::noCommand) { return false; }
 
-          static std::array<char, 8> buffer;
-
-          if (m_serial.available() > 0)
+          if (m_serial.available() >= 4)
           {
-            buffer.fill(0);
+            Serial.println("m_serial.available() >= 4");
 
-            while (m_serial.available() > 0)
-            {
-              switch (m_receiveState)
-              {
-                case ReceiveState::receiveCommand:
-                  size_t bytesReceived = m_serial.readBytes(buffer.data(), 2);
+            size_t receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), 2);
+            if (receivedBytesCount != 2) { return false; }
+            m_receivedCommandCode = toSerialGFXCommandCode(*reinterpret_cast<uint16_t*>(m_commandBuffer.data()));
+            Serial.println(fromSerialGFXCommandCode(m_receivedCommandCode));
 
-                  if (bytesReceived == 2)
-                  {
-                    uint16_t cmdElement = (static_cast<uint16_t>(buffer[0]) << 8) + static_cast<uint16_t>(buffer[1]);
-                    
-                    if (cmdElement == SerialGFXCommandElement::begin)
-                    {
-                      size_t bytesReceived = m_serial.readBytes(buffer.data(), 2);
+            receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), 2);
+            if (receivedBytesCount != 2) { return false; }
+            m_parameterBufferLength = *reinterpret_cast<uint16_t*>(m_commandBuffer.data());
+            Serial.println(m_parameterBufferLength);
 
-                      if (bytesReceived == 2)
-                      {
-                        m_receivedCommandCode = toSerialGFXCommandCode((static_cast<uint16_t>(buffer[0]) << 8) + static_cast<uint16_t>(buffer[1]));
+            receivedBytesCount = m_serial.readBytes(m_parameterBuffer.data(), m_parameterBufferLength);
+            if (receivedBytesCount != m_parameterBufferLength) { return false; }
 
-                        if (m_receivedCommandCode == SerialGFXCommandCode::invalid || m_receivedCommandCode == SerialGFXCommandCode::noCommand)
-                        {
-                          // handle error
-                        }
-                        else
-                        {
-                          size_t bytesReceived = m_serial.readBytes(buffer.data(), 2);
-
-                          if (bytesReceived == 2)
-                          {
-                            m_parameterCount = (static_cast<uint16_t>(buffer[0]) << 8) + static_cast<uint16_t>(buffer[1]);
-                            m_receiveState = ReceiveState::receiveParameters;
-                          }
-                        }
-                      }
-                    }
-                  }
-                break;
-
-                case ReceiveState::receiveParameters:
-                break;
-              }
-            }
+            return true;
           }
+
+          return false;
         }
 
-        int32_t runCommand()
+        bool runCommand()
         {
+          Serial.print("runCommand: ");
+          Serial.println(fromSerialGFXCommandCode(m_receivedCommandCode));
+
           switch (m_receivedCommandCode)
           {
             case SerialGFXCommandCode::swap: dviGFX_swap(); break;
             case SerialGFXCommandCode::fillScreen: dviGFX_fillScreen(); break;
+            case SerialGFXCommandCode::fillRect: dviGFX_fillRect(); break;
           }
 
-          m_receivedCommandCode = SerialGFXCommandCode::null;
-          return 0;
+          m_receivedCommandCode = SerialGFXCommandCode::noCommand;
+          return true;
         }
     };
   }

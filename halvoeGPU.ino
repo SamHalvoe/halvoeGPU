@@ -18,6 +18,10 @@ String g_inText;
 
 void setup()
 {
+  Serial.begin(9600);
+  while (not Serial) { delay(1000); }
+  Serial.println("gpu serial usb ready");
+
   if (not serialGFXInterface.begin())
   {
     pinMode(LED_BUILTIN, OUTPUT);
@@ -34,22 +38,8 @@ void setup()
 
 void loop()
 {
-  dviGFX.fillScreen(0);
-  
-  dviGFX.fillRect(5, 5, 25, 25, 255);
-  dviGFX.fillRect(25, 25, 25, 25, 127);
-
-  dviGFX.setTextColor(255);
-  dviGFX.setCursor(35, 10);
-  dviGFX.print("Hello Arduino DVI!");
-
-  /*if (Serial1.available() > 0)
+  if (serialGFXInterface.receiveCommand())
   {
-    g_inText = Serial1.readStringUntil('\0');
-  }*/
-
-  dviGFX.setCursor(35, 55);
-  dviGFX.print(g_inText);
-
-  dviGFX.swap();
+    serialGFXInterface.runCommand();
+  }
 }
