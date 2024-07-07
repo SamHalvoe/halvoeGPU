@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Adafruit_GFX.h>
 #include <elapsedMillis.h>
 #include <array>
 
@@ -11,6 +12,21 @@ namespace halvoeGPU
   {
     const uint8_t READY_PIN = 40;
 
+    // This class exists, because we need some methods from Adafruit_GFX (in particular getTextBounds()),
+    // but we do not need a working Adafruit_GFX like GFXcanvas8 or DVIGFX8.
+    class HelperGFX : public Adafruit_GFX
+    {
+      public:
+        HelperGFX(uint16_t w, uint16_t h) : Adafruit_GFX(w, h)
+        {}
+
+      private:
+        void drawPixel(int16_t x, int16_t y, uint16_t color)
+        {
+          // This method does nothing. (see comment of class)
+        }
+    };
+
     class SerialGFXInterface
     {
       private:
@@ -18,7 +34,7 @@ namespace halvoeGPU
         uint16_t m_parameterBufferLength = 0;
         std::array<char, 2> m_commandBuffer;
         std::array<char, g_maxParameterBufferLength> m_parameterBuffer;
-        uint16_t m_gpuCode;
+        HelperGFX m_helperGFX;
 
       private:
         bool sendCommand(SerialGFXCommandCode in_commandCode)
@@ -59,6 +75,13 @@ namespace halvoeGPU
           return true;
         }
 
+        bool addCharToBuffer(char in_value)
+        {
+          if (not setValueInBufferAt<char>(in_value, m_parameterBufferLength)) { return false; }
+          m_parameterBufferLength = m_parameterBufferLength + sizeof(char);
+          return true;
+        }
+
         bool addInt8ToBuffer(int8_t in_value)
         {
           if (not setValueInBufferAt<int8_t>(in_value, m_parameterBufferLength)) { return false; }
@@ -93,15 +116,15 @@ namespace halvoeGPU
           if (m_parameterBufferLength + sizeof(uint16_t) + stringLength > m_parameterBuffer.size()) { return false; }
 
           if (not addUInt16ToBuffer(stringLength)) { return false; }
-          in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength);
+          in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength + 1); // + 1 for zero terminator
           m_parameterBufferLength = m_parameterBufferLength + stringLength;
-
+          
           return true;
         }
 
       public:
         SerialGFXInterface(HALVOE_SERIAL_TYPE& io_serial) :
-          m_serial(io_serial)
+          m_serial(io_serial), m_helperGFX(g_screenWidth, g_screenHeight)
         {}
 
         bool begin(SerialGFXBaud in_baud = SerialGFXBaud::Default)
@@ -116,6 +139,18 @@ namespace halvoeGPU
         bool isGPUReady()
         {
           return digitalRead(READY_PIN) == HIGH;
+        }
+
+        void getTextBounds(const char* in_string, int16_t in_x, int16_t in_y,
+                           int16_t* out_x, int16_t* out_y, uint16_t* out_width, uint16_t* out_height)
+        {
+          m_helperGFX.getTextBounds(in_string, in_x, in_y, out_x, out_y, out_width, out_height);
+        }
+
+        void getTextBounds(const String& in_string, int16_t in_x, int16_t in_y,
+                           int16_t* out_x, int16_t* out_y, uint16_t* out_width, uint16_t* out_height)
+        {
+          m_helperGFX.getTextBounds(in_string, in_x, in_y, out_x, out_y, out_width, out_height);
         }
 
         bool sendSwap()
@@ -140,6 +175,68 @@ namespace halvoeGPU
           addInt16ToBuffer(in_height);
           addUInt16ToBuffer(in_color);
           return sendCommand(SerialGFXCommandCode::fillRect);
+        }
+
+        bool sendDrawRect(int16_t in_x, int16_t in_y, int16_t in_width, int16_t in_height, uint16_t in_color)
+        {
+          clearBuffer();
+          addInt16ToBuffer(in_x);
+          addInt16ToBuffer(in_y);
+          addInt16ToBuffer(in_width);
+          addInt16ToBuffer(in_height);
+          addUInt16ToBuffer(in_color);
+          return sendCommand(SerialGFXCommandCode::drawRect);
+        }
+
+        bool sendSetFont(SerialGFXFont in_font)
+        {
+          GFXfont* fontPointer = nullptr;
+          if (not getFontPointer(in_font, fontPointer)) { return false; }
+          m_helperGFX.setFont(fontPointer); // set for getTextBounds() atCPU
+
+          clearBuffer();
+          addUInt8ToBuffer(fromSerialGFXFont(in_font));
+          return sendCommand(SerialGFXCommandCode::setFont);
+        }
+
+        bool sendSetTextSize(uint8_t in_size)
+        {
+          m_helperGFX.setTextSize(in_size); // set for getTextBounds() atCPU
+
+          clearBuffer();
+          addUInt8ToBuffer(in_size);
+          return sendCommand(SerialGFXCommandCode::setTextSize);
+        }
+
+        bool sendSetTextColor(uint16_t in_color)
+        {
+          clearBuffer();
+          addUInt16ToBuffer(in_color);
+          return sendCommand(SerialGFXCommandCode::setTextColor);
+        }
+
+        bool sendSetCursor(int16_t in_x, int16_t in_y)
+        {
+          m_helperGFX.setCursor(in_x, in_y); // set for getTextBounds() atCPU
+
+          clearBuffer();
+          addInt16ToBuffer(in_x);
+          addInt16ToBuffer(in_y);
+          return sendCommand(SerialGFXCommandCode::setCursor);
+        }
+
+        bool sendPrint(const String& in_string)
+        {
+          clearBuffer();
+          addStringToBuffer(in_string);
+          return sendCommand(SerialGFXCommandCode::print);
+        }
+
+        bool sendPrintln(const String& in_string)
+        {
+          clearBuffer();
+          addStringToBuffer(in_string);
+          return sendCommand(SerialGFXCommandCode::println);
         }
     };
   }

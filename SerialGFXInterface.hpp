@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Fonts/Picopixel.h>
+
 #ifdef ARDUINO_ARCH_RP2040
   #define HALVOE_SERIAL_TYPE SerialUART
 #elif __IMXRT1062__
@@ -12,6 +14,8 @@
 
 namespace halvoeGPU
 {
+  const uint16_t g_screenWidth = 320;
+  const uint16_t g_screenHeight = 240;
   const uint16_t g_colorCount = 256;
   const size_t g_maxParameterBufferLength = 8192;
 
@@ -33,7 +37,20 @@ namespace halvoeGPU
     noCommand,
     swap,
     fillScreen,
-    fillRect
+    fillRect,
+    drawRect,
+    setFont,
+    setTextSize,
+    setTextColor,
+    setCursor,
+    print,
+    println
+  };
+
+  enum class SerialGFXFont : uint8_t
+  {
+    Default = 0,
+    Picopixel
   };
 
   unsigned long fromSerialGFXBaud(SerialGFXBaud in_baud)
@@ -49,6 +66,13 @@ namespace halvoeGPU
       case SerialGFXCommandCode::swap:
       case SerialGFXCommandCode::fillScreen:
       case SerialGFXCommandCode::fillRect:
+      case SerialGFXCommandCode::drawRect:
+      case SerialGFXCommandCode::setFont:
+      case SerialGFXCommandCode::setTextSize:
+      case SerialGFXCommandCode::setTextColor:
+      case SerialGFXCommandCode::setCursor:
+      case SerialGFXCommandCode::print:
+      case SerialGFXCommandCode::println:
         return static_cast<SerialGFXCommandCode>(in_value);
     }
 
@@ -58,5 +82,23 @@ namespace halvoeGPU
   uint16_t fromSerialGFXCommandCode(SerialGFXCommandCode in_code)
   {
     return static_cast<uint16_t>(in_code);
+  }
+
+  uint8_t fromSerialGFXFont(SerialGFXFont in_font)
+  {
+    return static_cast<uint8_t>(in_font);
+  }
+
+  bool getFontPointer(SerialGFXFont in_font, const GFXfont* out_pointer)
+  {
+    switch (in_font)
+    {
+      case SerialGFXFont::Default:   out_pointer = nullptr; break;
+      case SerialGFXFont::Picopixel: out_pointer = &Picopixel; break;
+
+      default: return false;
+    }
+
+    return true;
   }
 }
