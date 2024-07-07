@@ -9,6 +9,8 @@ namespace halvoeGPU
 {
   namespace atCPU
   {
+    const uint8_t READY_PIN = 40;
+
     class SerialGFXInterface
     {
       private:
@@ -16,6 +18,7 @@ namespace halvoeGPU
         uint16_t m_parameterBufferLength = 0;
         std::array<char, 2> m_commandBuffer;
         std::array<char, g_maxParameterBufferLength> m_parameterBuffer;
+        uint16_t m_gpuCode;
 
       private:
         bool sendCommand(SerialGFXCommandCode in_commandCode)
@@ -101,12 +104,18 @@ namespace halvoeGPU
           m_serial(io_serial)
         {}
 
-        bool begin(SerialGFXBaud in_baud = SerialGFXBaud::DEFAULT)
+        bool begin(SerialGFXBaud in_baud = SerialGFXBaud::Default)
         {
+          pinMode(READY_PIN, INPUT);
           m_serial.begin(fromSerialGFXBaud(in_baud));
           elapsedMillis timeSinceBegin;
           while (not m_serial && timeSinceBegin < 10000) {}
           return m_serial;
+        }
+
+        bool isGPUReady()
+        {
+          return digitalRead(READY_PIN) == HIGH;
         }
 
         bool sendSwap()
@@ -115,10 +124,10 @@ namespace halvoeGPU
           return sendCommand(SerialGFXCommandCode::swap);
         }
 
-        bool sendFillScreen()
+        bool sendFillScreen(uint16_t in_color)
         {
           clearBuffer();
-
+          addUInt16ToBuffer(in_color);
           return sendCommand(SerialGFXCommandCode::fillScreen);
         }
 
@@ -130,7 +139,6 @@ namespace halvoeGPU
           addInt16ToBuffer(in_width);
           addInt16ToBuffer(in_height);
           addUInt16ToBuffer(in_color);
-
           return sendCommand(SerialGFXCommandCode::fillRect);
         }
     };

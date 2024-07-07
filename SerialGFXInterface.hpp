@@ -10,24 +10,18 @@
 
 namespace halvoeGPU
 {
-  const size_t g_maxParameterBufferLength = 16384;
+  const size_t g_maxParameterBufferLength = 8192;
 
   enum class SerialGFXBaud : unsigned long
   {
-    FALLBACK = 9600,
-    MIN = 115200,
-    QUARTER = 250000,
-    HALF = 576000,
-    DEFAULT = 1000000,
-    DOUBLE = 2000000,
-    QUAD = 4000000,
-    MAX = 6000000
-  };
-
-  enum class SerialGFXCode : uint16_t
-  {
-    invalid = 0,
-    gpuIsReady
+    Fallback = 9600,
+    Min = 115200,
+    Quarter = 250000,
+    Half = 576000,
+    Default = 1000000,
+    Double = 2000000,
+    Quad = 4000000,
+    Max = 6000000
   };
 
   enum class SerialGFXCommandCode : uint16_t
@@ -42,22 +36,6 @@ namespace halvoeGPU
   unsigned long fromSerialGFXBaud(SerialGFXBaud in_baud)
   {
     return static_cast<unsigned long>(in_baud);
-  }
-
-  SerialGFXCode toSerialGFXCode(uint16_t in_value)
-  {
-    switch (static_cast<SerialGFXCode>(in_value))
-    {
-      case SerialGFXCode::gpuIsReady:
-        return static_cast<SerialGFXCode>(in_value);
-    }
-
-    return SerialGFXCode::invalid;
-  }
-
-  uint16_t fromSerialGFXCode(SerialGFXCode in_code)
-  {
-    return static_cast<uint16_t>(in_code);
   }
 
   SerialGFXCommandCode toSerialGFXCommandCode(uint16_t in_value)

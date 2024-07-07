@@ -5,18 +5,22 @@
 #include <array>
 
 #include "SerialGFXInterface.hpp"
+#include "halvoeVersion.hpp"
 
 namespace halvoeGPU
 {
   namespace atGPU
   {
+    const pin_size_t READY_PIN = 24;
+
     class SerialGFXInterface
     {
       private:
         HALVOE_SERIAL_TYPE& m_serial;
         DVIGFX8& m_dviGFX;
         elapsedMillis m_timeSinceLastFrame;
-        unsigned long m_maxFrameTime = 1000;
+        unsigned long m_maxFrameTimeMs = 1000;
+        bool m_isPrintFrameTimeEnabled = false;
         bool m_isPrintFPSEnabled = false;
 
         SerialGFXCommandCode m_receivedCommandCode = SerialGFXCommandCode::noCommand;
@@ -28,44 +32,51 @@ namespace halvoeGPU
         void dviGFX_swap()
         {
           if (m_timeSinceLastFrame < 5) { return; }
-          if (m_isPrintFPSEnabled) { printFrameTime(); }
+          if (m_isPrintFrameTimeEnabled) { printFrameTime(); }
+          if (m_isPrintFPSEnabled) { printFPS(); }
           m_dviGFX.swap();
           m_timeSinceLastFrame = 0;
         }
 
         void dviGFX_fillScreen()
         {
-          m_dviGFX.fillScreen(0);
+          if (m_parameterBufferLength < 2) { return; }
+          uint16_t color = *reinterpret_cast<uint16_t*>(m_parameterBuffer.data());
+          m_dviGFX.fillScreen(color);
         }
 
         void dviGFX_fillRect()
         {
           if (m_parameterBufferLength < 10) { return; }
-
           int16_t x      = *reinterpret_cast<int16_t*>(m_parameterBuffer.data());
           int16_t y      = *reinterpret_cast<int16_t*>(m_parameterBuffer.data() + 2);
           int16_t width  = *reinterpret_cast<int16_t*>(m_parameterBuffer.data() + 4);
           int16_t height = *reinterpret_cast<int16_t*>(m_parameterBuffer.data() + 6);
           uint16_t color = *reinterpret_cast<uint16_t*>(m_parameterBuffer.data() + 8);
-
           m_dviGFX.fillRect(x, y, width, height, color);
         }
 
         void printFPS()
         {
           m_dviGFX.setTextColor(255);
-          m_dviGFX.setCursor(320 - 50, 5);
-          m_dviGFX.print(1000 / getFrameTime());
-          m_dviGFX.print(" FPS");
+          String fps(1000 / getFrameTime());
+          fps.concat(" FPS");
+          uint16_t width = 0;
+          m_dviGFX.getTextBounds(fps, 0, 0, nullptr, nullptr, &width, nullptr);
+          m_dviGFX.setCursor(320 - 5 - width, 5);
+          m_dviGFX.print(fps);
         }
 
         void printFrameTime()
         {
           m_dviGFX.setTextColor(255);
-          m_dviGFX.setCursor(320 - 50, 5);
-          if (getFrameTime() < 10) { m_dviGFX.print(" "); }
-          m_dviGFX.print(getFrameTime());
-          m_dviGFX.print(" ms");
+          m_dviGFX.setCursor(320 - 45, m_isPrintFPSEnabled ? 15 : 5);
+          String frameTime(getFrameTime());
+          frameTime.concat(" ms");
+          uint16_t width = 0;
+          m_dviGFX.getTextBounds(frameTime, 0, 0, nullptr, nullptr, &width, nullptr);
+          m_dviGFX.setCursor(320 - 5 - width, 5);
+          m_dviGFX.print(frameTime);
         }
 
       public:
@@ -73,27 +84,34 @@ namespace halvoeGPU
           m_serial(io_serial), m_dviGFX(io_dviGFX)
         {}
 
-        bool begin(SerialGFXBaud in_baud = SerialGFXBaud::DEFAULT)
+        bool begin(SerialGFXBaud in_baud = SerialGFXBaud::Default)
         {
-          if (not m_dviGFX.begin()) // false if insufficient RAM
-          {
-            return false;
-          }
-
+          pinMode(READY_PIN, OUTPUT);
+          writeReady(false);
+          if (not m_dviGFX.begin()) { return false; } // false if (probably) insufficient RAM
           m_serial.setFIFOSize(128);
           m_serial.begin(fromSerialGFXBaud(in_baud));
           elapsedMillis timeSinceBegin;
-
-          while (not m_serial && timeSinceBegin < 10000)
-          {}
-
+          while (not m_serial && timeSinceBegin < 10000) {}
           return m_serial;
         }
-        
-        bool sendCode(SerialGFXCode in_code)
+
+        void writeReady(bool in_isReady)
         {
-          uint16_t code = fromSerialGFXCode(in_code);
-          return m_serial.write(reinterpret_cast<char*>(&code), 2) != 2;
+          digitalWrite(READY_PIN, in_isReady ? HIGH : LOW);
+        }
+
+        void printVersion()
+        {
+          m_dviGFX.setCursor(5, 5);
+          m_dviGFX.print("halvoeGPU");
+          m_dviGFX.setCursor(5, 15);
+          m_dviGFX.print("Version: ");
+          m_dviGFX.print(buildVersion);
+          m_dviGFX.setCursor(5, 25);
+          m_dviGFX.print("Build: ");
+          m_dviGFX.print(buildTimestamp);
+          m_dviGFX.swap();
         }
 
         bool receiveCommand()
@@ -137,8 +155,18 @@ namespace halvoeGPU
 
         unsigned long getFrameTime() const
         {
-          unsigned long frameTime = m_timeSinceLastFrame;
-          return min(frameTime, m_maxFrameTime);
+          unsigned long frameTimeMs = m_timeSinceLastFrame;
+          return min(frameTimeMs, m_maxFrameTimeMs);
+        }
+
+        void enablePrintFrameTime()
+        {
+          m_isPrintFrameTimeEnabled = true;
+        }
+
+        void disablePrintFrameTime()
+        {
+          m_isPrintFrameTimeEnabled = false;
         }
 
         void enablePrintFPS()

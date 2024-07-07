@@ -9,22 +9,20 @@
 // Pico DVI Sock ('pico_sock_cfg').
 DVIGFX8 dviGFX(DVI_RES_320x240p60, true, adafruit_feather_dvi_cfg);
 halvoeGPU::atGPU::SerialGFXInterface serialGFXInterface(Serial1, dviGFX);
-const unsigned long g_readySignalInterval = 1000;
-elapsedMillis g_readySignalTimer;
 
 const uint16_t g_colorCount = 256;
 String g_inText;
 
 void setup()
 {
+  pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(9600);
   while (not Serial) { delay(1000); }
   Serial.println("gpu serial to usb ready");
 
   if (not serialGFXInterface.begin())
   {
-    pinMode(LED_BUILTIN, OUTPUT);
-    for (;;) digitalWrite(LED_BUILTIN, (millis() / 500) & 1);
+    while (true) { digitalWrite(LED_BUILTIN, HIGH); delay(250); digitalWrite(LED_BUILTIN, LOW); }
   }
 
   for (uint16_t index = 0; index < g_colorCount; ++index)
@@ -33,7 +31,9 @@ void setup()
   }
 
   dviGFX.swap(false, true); // Duplicate same palette into front & back buffers
-  serialGFXInterface.enablePrintFPS();
+  serialGFXInterface.enablePrintFrameTime();
+  serialGFXInterface.printVersion();
+  serialGFXInterface.writeReady(true);
 }
 
 void loop()
@@ -41,10 +41,5 @@ void loop()
   if (serialGFXInterface.receiveCommand())
   {
     serialGFXInterface.runCommand();
-    g_readySignalTimer = 0;
-  }
-  else if (g_readySignalTimer >= g_readySignalInterval)
-  {
-    serialGFXInterface.sendCode(halvoeGPU::SerialGFXCode::gpuIsReady);
   }
 }
