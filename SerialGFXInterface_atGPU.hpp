@@ -88,12 +88,25 @@ namespace halvoeGPU
         {
           pinMode(READY_PIN, OUTPUT);
           writeReady(false);
+
           if (not m_dviGFX.begin()) { return false; } // false if (probably) insufficient RAM
+          setupDefaultPalette();
+
           m_serial.setFIFOSize(128);
           m_serial.begin(fromSerialGFXBaud(in_baud));
           elapsedMillis timeSinceBegin;
           while (not m_serial && timeSinceBegin < 10000) {}
           return m_serial;
+        }
+
+        void setupDefaultPalette()
+        {
+          for (uint16_t index = 0; index < g_colorCount; ++index)
+          {
+            m_dviGFX.setColor(index, index, index, index);
+          }
+
+          m_dviGFX.swap(false, true); // Duplicate same palette into front & back buffers
         }
 
         void writeReady(bool in_isReady)
@@ -111,6 +124,10 @@ namespace halvoeGPU
           m_dviGFX.setCursor(5, 25);
           m_dviGFX.print("Build: ");
           m_dviGFX.print(buildTimestamp);
+          #ifdef HALVOE_GPU_DEBUG
+            m_dviGFX.setCursor(5, 35);
+            m_dviGFX.print("HALVOE_GPU_DEBUG is enabled!");
+          #endif // HALVOE_GPU_DEBUG
           m_dviGFX.swap();
         }
 
@@ -139,8 +156,10 @@ namespace halvoeGPU
 
         bool runCommand()
         {
-          Serial.print("runCommand: ");
-          Serial.println(fromSerialGFXCommandCode(m_receivedCommandCode));
+          #ifdef HALVOE_GPU_DEBUG
+            Serial.print("runCommand: ");
+            Serial.println(fromSerialGFXCommandCode(m_receivedCommandCode));
+          #endif // HALVOE_GPU_DEBUG
 
           switch (m_receivedCommandCode)
           {

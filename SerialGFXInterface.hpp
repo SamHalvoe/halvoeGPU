@@ -8,8 +8,11 @@
   #error Invalid MCU!
 #endif // ARDUINO_ARCH_RP2040 / 
 
+//#define HALVOE_GPU_DEBUG
+
 namespace halvoeGPU
 {
+  const uint16_t g_colorCount = 256;
   const size_t g_maxParameterBufferLength = 8192;
 
   enum class SerialGFXBaud : unsigned long

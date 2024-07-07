@@ -10,27 +10,21 @@
 DVIGFX8 dviGFX(DVI_RES_320x240p60, true, adafruit_feather_dvi_cfg);
 halvoeGPU::atGPU::SerialGFXInterface serialGFXInterface(Serial1, dviGFX);
 
-const uint16_t g_colorCount = 256;
-String g_inText;
-
 void setup()
 {
   pinMode(LED_BUILTIN, OUTPUT);
-  Serial.begin(9600);
-  while (not Serial) { delay(1000); }
-  Serial.println("gpu serial to usb ready");
+
+  #ifdef HALVOE_GPU_DEBUG
+    Serial.begin(9600);
+    while (not Serial) { delay(1000); }
+    Serial.println("gpu serial to usb ready");
+  #endif // HALVOE_GPU_DEBUG
 
   if (not serialGFXInterface.begin())
   {
     while (true) { digitalWrite(LED_BUILTIN, HIGH); delay(250); digitalWrite(LED_BUILTIN, LOW); }
   }
 
-  for (uint16_t index = 0; index < g_colorCount; ++index)
-  {
-    dviGFX.setColor(index, index, index, index);
-  }
-
-  dviGFX.swap(false, true); // Duplicate same palette into front & back buffers
   serialGFXInterface.enablePrintFrameTime();
   serialGFXInterface.printVersion();
   serialGFXInterface.writeReady(true);
