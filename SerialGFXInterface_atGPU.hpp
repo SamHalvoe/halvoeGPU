@@ -119,6 +119,10 @@ namespace halvoeGPU
 
         void cmd_print()
         {
+          #ifdef HALVOE_GPU_DEBUG
+            Serial.println(getCStringFromBuffer(0, nullptr));
+          #endif // HALVOE_GPU_DEBUG
+          
           m_dviGFX.print(getCStringFromBuffer(0, nullptr));
         }
 

@@ -10,7 +10,7 @@
   #error Invalid MCU!
 #endif // ARDUINO_ARCH_RP2040 / 
 
-//#define HALVOE_GPU_DEBUG
+#define HALVOE_GPU_DEBUG
 
 namespace halvoeGPU
 {
