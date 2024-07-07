@@ -117,11 +117,10 @@ namespace halvoeGPU
 
           if (not addUInt16ToBuffer(stringLength)) { return false; }
           in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength + 1);
-          m_parameterBufferLength = m_parameterBufferLength + stringLength + 1;
-          
           #ifdef HALVOE_GPU_DEBUG
-            Serial.println(reinterpret_cast<const char*>(m_parameterBuffer.data() + m_parameterBufferLength));
+            Serial.println(m_parameterBuffer.data() + m_parameterBufferLength);
           #endif // HALVOE_GPU_DEBUG
+          m_parameterBufferLength = m_parameterBufferLength + stringLength + 1;
                    
           return true;
         }
