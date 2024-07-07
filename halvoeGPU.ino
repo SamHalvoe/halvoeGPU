@@ -15,7 +15,7 @@ void setup()
   pinMode(LED_BUILTIN, OUTPUT);
 
   #ifdef HALVOE_GPU_DEBUG
-    Serial.begin(9600);
+    Serial.begin(115200);
     while (not Serial) { delay(1000); }
     Serial.println("gpu serial to usb ready");
   #endif // HALVOE_GPU_DEBUG

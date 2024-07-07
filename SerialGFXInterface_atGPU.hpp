@@ -12,6 +12,7 @@ namespace halvoeGPU
   namespace atGPU
   {
     const pin_size_t READY_PIN = 24;
+    const size_t GPU_SERIAL_RECEIVE_FIFO_SIZE = 256;
 
     class SerialGFXInterface
     {
@@ -29,23 +30,23 @@ namespace halvoeGPU
         std::array<char, g_maxParameterBufferLength> m_parameterBuffer;
 
       private:
-        void dviGFX_swap()
+        void gfx_swap()
         {
-          if (m_timeSinceLastFrame < 5) { return; }
+          if (m_timeSinceLastFrame < 4) { return; }
           if (m_isPrintFrameTimeEnabled) { printFrameTime(); }
           if (m_isPrintFPSEnabled) { printFPS(); }
           m_dviGFX.swap();
           m_timeSinceLastFrame = 0;
         }
 
-        void dviGFX_fillScreen()
+        void gfx_fillScreen()
         {
           if (m_parameterBufferLength < 2) { return; }
           uint16_t color = *reinterpret_cast<uint16_t*>(m_parameterBuffer.data());
           m_dviGFX.fillScreen(color);
         }
 
-        void dviGFX_fillRect()
+        void gfx_fillRect()
         {
           if (m_parameterBufferLength < 10) { return; }
           int16_t x      = *reinterpret_cast<int16_t*>(m_parameterBuffer.data());
@@ -92,7 +93,13 @@ namespace halvoeGPU
           if (not m_dviGFX.begin()) { return false; } // false if (probably) insufficient RAM
           setupDefaultPalette();
 
-          m_serial.setFIFOSize(128);
+          #ifdef HALVOE_GPU_DEBUG
+            if (not m_serial.setFIFOSize(GPU_SERIAL_RECEIVE_FIFO_SIZE))
+            { Serial.println("setFIFOSize(" + String(GPU_SERIAL_RECEIVE_FIFO_SIZE) + ") failed!"); }
+          #else
+            m_serial.setFIFOSize(GPU_SERIAL_RECEIVE_FIFO_SIZE);
+          #endif // HALVOE_GPU_DEBUG
+
           m_serial.begin(fromSerialGFXBaud(in_baud));
           elapsedMillis timeSinceBegin;
           while (not m_serial && timeSinceBegin < 10000) {}
@@ -163,9 +170,9 @@ namespace halvoeGPU
 
           switch (m_receivedCommandCode)
           {
-            case SerialGFXCommandCode::swap: dviGFX_swap(); break;
-            case SerialGFXCommandCode::fillScreen: dviGFX_fillScreen(); break;
-            case SerialGFXCommandCode::fillRect: dviGFX_fillRect(); break;
+            case SerialGFXCommandCode::swap: gfx_swap(); break;
+            case SerialGFXCommandCode::fillScreen: gfx_fillScreen(); break;
+            case SerialGFXCommandCode::fillRect: gfx_fillRect(); break;
           }
 
           m_receivedCommandCode = SerialGFXCommandCode::noCommand;
