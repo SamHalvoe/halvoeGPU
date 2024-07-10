@@ -112,15 +112,14 @@ namespace halvoeGPU
 
         bool addStringToBuffer(const String& in_string)
         {
-          uint16_t stringLength = in_string.length(); // + 1 for zero terminator
-          if (m_parameterBufferLength + sizeof(uint16_t) + stringLength + 1 > m_parameterBuffer.size()) { return false; }
+          size_t stringLength = in_string.length();
+          if (m_parameterBufferLength + stringLength + g_zeroTerminatorLength > m_parameterBuffer.size()) { return false; }
 
-          if (not addUInt16ToBuffer(stringLength)) { return false; }
-          in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength + 1);
+          in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength + g_zeroTerminatorLength);
           #ifdef HALVOE_GPU_DEBUG
             Serial.println(m_parameterBuffer.data() + m_parameterBufferLength);
           #endif // HALVOE_GPU_DEBUG
-          m_parameterBufferLength = m_parameterBufferLength + stringLength + 1;
+          m_parameterBufferLength = m_parameterBufferLength + stringLength + g_zeroTerminatorLength;
                    
           return true;
         }

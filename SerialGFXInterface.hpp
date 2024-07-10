@@ -14,10 +14,14 @@
 
 namespace halvoeGPU
 {
-  const uint16_t g_screenWidth = 320;
-  const uint16_t g_screenHeight = 240;
-  const uint16_t g_colorCount = 256;
-  const size_t g_maxParameterBufferLength = 8192;
+  constexpr const uint16_t g_screenWidth = 320;
+  constexpr const uint16_t g_screenHeight = 240;
+  constexpr const uint16_t g_colorCount = 256;
+
+  constexpr const unsigned long g_minFrameTimeMs = 4;
+
+  constexpr const size_t g_maxParameterBufferLength = 8192;
+  constexpr const size_t g_zeroTerminatorLength = 1;
 
   enum class SerialGFXBaud : unsigned long
   {
@@ -46,6 +50,7 @@ namespace halvoeGPU
     print,
     println
   };
+
 
   enum class SerialGFXFont : uint8_t
   {

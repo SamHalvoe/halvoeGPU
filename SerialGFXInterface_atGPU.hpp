@@ -4,6 +4,7 @@
 #include <elapsedMillis.h>
 #include <array>
 
+#include "halvoeCString.hpp"
 #include "SerialGFXInterface.hpp"
 #include "halvoeVersion.hpp"
 
@@ -20,7 +21,6 @@ namespace halvoeGPU
         HALVOE_SERIAL_TYPE& m_serial;
         DVIGFX8& m_dviGFX;
         elapsedMillis m_timeSinceLastFrame;
-        unsigned long m_maxFrameTimeMs = 1000;
         bool m_isPrintFrameTimeEnabled = false;
         bool m_isPrintFPSEnabled = false;
 
@@ -28,27 +28,45 @@ namespace halvoeGPU
         uint16_t m_parameterBufferLength = 0;
         std::array<char, 2> m_commandBuffer;
         std::array<char, g_maxParameterBufferLength> m_parameterBuffer;
+        size_t m_parameterBufferOffset = 0;
 
       private:
-        template<typename ParameterType>
-        ParameterType getParameterFromBuffer(size_t in_bufferOffset)
+        void resetParameterBufferOffset()
         {
-          return *reinterpret_cast<ParameterType*>(m_parameterBuffer.data() + in_bufferOffset);
+          m_parameterBufferOffset = 0;
         }
 
-        const char* getCStringFromBuffer(size_t in_bufferOffset, uint16_t* out_stringLenght)
+        template<typename ParameterType>
+        ParameterType* getParameterFromBuffer(size_t in_bufferOffset = 0)
         {
-          if (out_stringLenght != nullptr)
-          {
-            *out_stringLenght = getParameterFromBuffer<uint16_t>(in_bufferOffset);
-          }
-          
-          return reinterpret_cast<const char*>(m_parameterBuffer.data() + in_bufferOffset + sizeof(uint16_t));
+          if (in_bufferOffset >= m_parameterBufferLength) { return nullptr; }
+          return reinterpret_cast<ParameterType*>(m_parameterBuffer.data() + in_bufferOffset);
+        }
+
+        template<typename ParameterType>
+        ParameterType* getNextParameterFromBuffer()
+        {
+          size_t currentParameterBufferOffset = m_parameterBufferOffset;
+          m_parameterBufferOffset = m_parameterBufferOffset + sizeof(ParameterType);
+          return getParameterFromBuffer<ParameterType>(currentParameterBufferOffset);
+        }
+
+        const char* getCStringFromBuffer(size_t in_bufferOffset = 0)
+        {
+          if (in_bufferOffset >= m_parameterBufferLength) { return nullptr; }
+          return reinterpret_cast<const char*>(m_parameterBuffer.data() + in_bufferOffset);
+        }
+
+        const char* getNextCStringFromBuffer()
+        {
+          const char* string = getCStringFromBuffer(m_parameterBufferOffset);
+          m_parameterBufferOffset = m_parameterBufferOffset + halvoeCString::getLength(string, g_maxParameterBufferLength - m_parameterBufferOffset);
+          return string;
         }
 
         void cmd_swap()
         {
-          if (m_timeSinceLastFrame < 4) { return; }
+          if (m_timeSinceLastFrame < g_minFrameTimeMs) { return; }
           if (m_isPrintFrameTimeEnabled) { printFrameTime(); }
           if (m_isPrintFPSEnabled) { printFPS(); }
           m_dviGFX.swap();
@@ -57,39 +75,37 @@ namespace halvoeGPU
 
         void cmd_fillScreen()
         {
-          if (m_parameterBufferLength < 2) { return; }
-          uint16_t color = getParameterFromBuffer<uint16_t>(0);
-          m_dviGFX.fillScreen(color);
+          uint16_t* color = getParameterFromBuffer<uint16_t>(); if (color == nullptr) { return; }
+          m_dviGFX.fillScreen(*color);
         }
 
         void cmd_fillRect()
         {
-          if (m_parameterBufferLength < 10) { return; }
-          int16_t x      = getParameterFromBuffer<int16_t>(0);
-          int16_t y      = getParameterFromBuffer<int16_t>(2);
-          int16_t width  = getParameterFromBuffer<int16_t>(4);
-          int16_t height = getParameterFromBuffer<int16_t>(6);
-          uint16_t color = getParameterFromBuffer<uint16_t>(8);
-          m_dviGFX.fillRect(x, y, width, height, color);
+          resetParameterBufferOffset();
+          int16_t*  x      = getNextParameterFromBuffer<int16_t>();  if (x == nullptr) { return; }
+          int16_t*  y      = getNextParameterFromBuffer<int16_t>();  if (y == nullptr) { return; }
+          int16_t*  width  = getNextParameterFromBuffer<int16_t>();  if (width == nullptr) { return; }
+          int16_t*  height = getNextParameterFromBuffer<int16_t>();  if (height == nullptr) { return; }
+          uint16_t* color  = getNextParameterFromBuffer<uint16_t>(); if (color == nullptr) { return; }
+          m_dviGFX.fillRect(*x, *y, *width, *height, *color);
         }
 
         void cmd_drawRect()
         {
-          if (m_parameterBufferLength < 10) { return; }
-          int16_t x      = getParameterFromBuffer<int16_t>(0);
-          int16_t y      = getParameterFromBuffer<int16_t>(2);
-          int16_t width  = getParameterFromBuffer<int16_t>(4);
-          int16_t height = getParameterFromBuffer<int16_t>(6);
-          uint16_t color = getParameterFromBuffer<uint16_t>(8);
-          m_dviGFX.drawRect(x, y, width, height, color);
+          resetParameterBufferOffset();
+          int16_t*  x      = getNextParameterFromBuffer<int16_t>();  if (x == nullptr) { return; }
+          int16_t*  y      = getNextParameterFromBuffer<int16_t>();  if (y == nullptr) { return; }
+          int16_t*  width  = getNextParameterFromBuffer<int16_t>();  if (width == nullptr) { return; }
+          int16_t*  height = getNextParameterFromBuffer<int16_t>();  if (height == nullptr) { return; }
+          uint16_t* color  = getNextParameterFromBuffer<uint16_t>(); if (color == nullptr) { return; }
+          m_dviGFX.drawRect(*x, *y, *width, *height, *color);
         }
 
         void cmd_setFont()
         {
-          if (m_parameterBufferLength < 1) { return; }
-          uint8_t font = getParameterFromBuffer<uint8_t>(0);
+          uint8_t* font = getParameterFromBuffer<uint8_t>(); if (font == nullptr) { return; }
           
-          if (GFXfont* fontPointer = nullptr; getFontPointer(static_cast<SerialGFXFont>(font), fontPointer))
+          if (GFXfont* fontPointer = nullptr; getFontPointer(static_cast<SerialGFXFont>(*font), fontPointer))
           {
             m_dviGFX.setFont(fontPointer);
           }
@@ -97,38 +113,35 @@ namespace halvoeGPU
 
         void cmd_setTextSize()
         {
-          if (m_parameterBufferLength < 1) { return; }
-          uint8_t size = getParameterFromBuffer<uint8_t>(0);
-          m_dviGFX.setTextSize(size);
+          uint8_t* size = getParameterFromBuffer<uint8_t>(); if (size == nullptr) { return; }
+          m_dviGFX.setTextSize(*size);
         }
 
         void cmd_setTextColor()
         {
-          if (m_parameterBufferLength < 2) { return; }
-          uint16_t color = getParameterFromBuffer<uint16_t>(0);
-          m_dviGFX.setTextSize(color);
+          uint16_t* color = getParameterFromBuffer<uint16_t>(); if (color == nullptr) { return; }
+          m_dviGFX.setTextColor(*color);
         }
 
         void cmd_setCursor()
         {
-          if (m_parameterBufferLength < 4) { return; }
-          int16_t x = getParameterFromBuffer<int16_t>(0);
-          int16_t y = getParameterFromBuffer<int16_t>(2);
-          m_dviGFX.setCursor(x, y);
+          resetParameterBufferOffset();
+          int16_t* x = getNextParameterFromBuffer<int16_t>(); if (x == nullptr) { return; }
+          int16_t* y = getNextParameterFromBuffer<int16_t>(); if (y == nullptr) { return; }
+          m_dviGFX.setCursor(*x, *y);
         }
 
         void cmd_print()
         {
           #ifdef HALVOE_GPU_DEBUG
-            Serial.println(getCStringFromBuffer(0, nullptr));
+            Serial.println(getCStringFromBuffer());
           #endif // HALVOE_GPU_DEBUG
-          
-          m_dviGFX.print(getCStringFromBuffer(0, nullptr));
+          m_dviGFX.print(getCStringFromBuffer());
         }
 
         void cmd_println()
         {
-          m_dviGFX.println(getCStringFromBuffer(0, nullptr));
+          m_dviGFX.println(getCStringFromBuffer());
         }
 
         void printFPS()
@@ -217,14 +230,15 @@ namespace halvoeGPU
         {
           if (m_receivedCommandCode != SerialGFXCommandCode::noCommand) { return false; }
 
-          if (m_serial.available() >= 4)
+          // 2 * m_commandBuffer.size() because we read two times the size of m_commandBuffer
+          if (static_cast<size_t>(m_serial.available()) >= 2 * m_commandBuffer.size())
           {
-            size_t receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), 2);
-            if (receivedBytesCount != 2) { return false; }
+            size_t receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), m_commandBuffer.size());
+            if (receivedBytesCount != m_commandBuffer.size()) { return false; }
             m_receivedCommandCode = toSerialGFXCommandCode(*reinterpret_cast<uint16_t*>(m_commandBuffer.data()));
 
-            receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), 2);
-            if (receivedBytesCount != 2) { return false; }
+            receivedBytesCount = m_serial.readBytes(m_commandBuffer.data(), m_commandBuffer.size());
+            if (receivedBytesCount != m_commandBuffer.size()) { return false; }
             m_parameterBufferLength = *reinterpret_cast<uint16_t*>(m_commandBuffer.data());
 
             receivedBytesCount = m_serial.readBytes(m_parameterBuffer.data(), m_parameterBufferLength);
@@ -245,15 +259,16 @@ namespace halvoeGPU
 
           switch (m_receivedCommandCode)
           {
-            case SerialGFXCommandCode::swap:        cmd_swap(); break;
-            case SerialGFXCommandCode::fillScreen:  cmd_fillScreen(); break;
-            case SerialGFXCommandCode::fillRect:    cmd_fillRect(); break;
-            case SerialGFXCommandCode::drawRect:    cmd_drawRect(); break;
-            case SerialGFXCommandCode::setFont:     cmd_setFont(); break;
-            case SerialGFXCommandCode::setTextSize: cmd_setTextSize(); break;
-            case SerialGFXCommandCode::setCursor:   cmd_setCursor(); break;
-            case SerialGFXCommandCode::print:       cmd_print(); break;
-            case SerialGFXCommandCode::println:     cmd_println(); break;
+            case SerialGFXCommandCode::swap:         cmd_swap(); break;
+            case SerialGFXCommandCode::fillScreen:   cmd_fillScreen(); break;
+            case SerialGFXCommandCode::fillRect:     cmd_fillRect(); break;
+            case SerialGFXCommandCode::drawRect:     cmd_drawRect(); break;
+            case SerialGFXCommandCode::setFont:      cmd_setFont(); break;
+            case SerialGFXCommandCode::setTextSize:  cmd_setTextSize(); break;
+            case SerialGFXCommandCode::setTextColor: cmd_setTextColor(); break;
+            case SerialGFXCommandCode::setCursor:    cmd_setCursor(); break;
+            case SerialGFXCommandCode::print:        cmd_print(); break;
+            case SerialGFXCommandCode::println:      cmd_println(); break;
           }
 
           m_receivedCommandCode = SerialGFXCommandCode::noCommand;
@@ -263,7 +278,7 @@ namespace halvoeGPU
         unsigned long getFrameTime() const
         {
           unsigned long frameTimeMs = m_timeSinceLastFrame;
-          return min(frameTimeMs, m_maxFrameTimeMs);
+          return min(frameTimeMs, 1000UL); // we do not want to return a frame time greater than 1000
         }
 
         void enablePrintFrameTime()
