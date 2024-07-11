@@ -26,6 +26,7 @@ void setup()
   }
 
   serialGFXInterface.enablePrintFrameTime();
+  serialGFXInterface.enablePrintFPS();
   serialGFXInterface.printVersion();
   serialGFXInterface.writeReady(true);
 }

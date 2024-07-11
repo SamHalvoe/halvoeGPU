@@ -4,6 +4,7 @@
 #include <elapsedMillis.h>
 #include <array>
 
+#include "halvoeCString.hpp"
 #include "SerialGFXInterface.hpp"
 
 namespace halvoeGPU
@@ -55,7 +56,7 @@ namespace halvoeGPU
           return true;
         }
 
-        void clearBuffer()
+        void resetParameterBufferLength()
         {
           m_parameterBufferLength = 0;
         }
@@ -110,15 +111,29 @@ namespace halvoeGPU
           return true;
         }
 
+        bool addStringToBuffer(const char* in_string)
+        {
+          size_t stringLength = halvoeCString::getLength(in_string, g_maxParameterBufferLength - m_parameterBufferLength) ;
+          if (m_parameterBufferLength + stringLength + g_zeroTerminatorLength > m_parameterBuffer.size()) { return false; }
+          
+          if (not halvoeCString::copy(in_string, m_parameterBuffer.data(), stringLength)) { return false; }
+          #ifdef HALVOE_GPU_DEBUG_ADD_STRING
+            Serial.println(m_parameterBuffer.data() + m_parameterBufferLength);
+          #endif // HALVOE_GPU_DEBUG_ADD_STRING
+          m_parameterBufferLength = m_parameterBufferLength + stringLength + g_zeroTerminatorLength;
+                   
+          return true;
+        }
+
         bool addStringToBuffer(const String& in_string)
         {
           size_t stringLength = in_string.length();
           if (m_parameterBufferLength + stringLength + g_zeroTerminatorLength > m_parameterBuffer.size()) { return false; }
 
           in_string.toCharArray(m_parameterBuffer.data() + m_parameterBufferLength, stringLength + g_zeroTerminatorLength);
-          #ifdef HALVOE_GPU_DEBUG
+          #ifdef HALVOE_GPU_DEBUG_ADD_STRING
             Serial.println(m_parameterBuffer.data() + m_parameterBufferLength);
-          #endif // HALVOE_GPU_DEBUG
+          #endif // HALVOE_GPU_DEBUG_ADD_STRING
           m_parameterBufferLength = m_parameterBufferLength + stringLength + g_zeroTerminatorLength;
                    
           return true;
@@ -157,20 +172,20 @@ namespace halvoeGPU
 
         bool sendSwap()
         {
-          clearBuffer();
+          resetParameterBufferLength();
           return sendCommand(SerialGFXCommandCode::swap);
         }
 
         bool sendFillScreen(uint16_t in_color)
         {
-          clearBuffer();
+          resetParameterBufferLength();
           addUInt16ToBuffer(in_color);
           return sendCommand(SerialGFXCommandCode::fillScreen);
         }
 
         bool sendFillRect(int16_t in_x, int16_t in_y, int16_t in_width, int16_t in_height, uint16_t in_color)
         {
-          clearBuffer();
+          resetParameterBufferLength();
           addInt16ToBuffer(in_x);
           addInt16ToBuffer(in_y);
           addInt16ToBuffer(in_width);
@@ -181,7 +196,7 @@ namespace halvoeGPU
 
         bool sendDrawRect(int16_t in_x, int16_t in_y, int16_t in_width, int16_t in_height, uint16_t in_color)
         {
-          clearBuffer();
+          resetParameterBufferLength();
           addInt16ToBuffer(in_x);
           addInt16ToBuffer(in_y);
           addInt16ToBuffer(in_width);
@@ -196,7 +211,7 @@ namespace halvoeGPU
           if (not getFontPointer(in_font, fontPointer)) { return false; }
           m_helperGFX.setFont(fontPointer); // set for getTextBounds() atCPU
 
-          clearBuffer();
+          resetParameterBufferLength();
           addUInt8ToBuffer(fromSerialGFXFont(in_font));
           return sendCommand(SerialGFXCommandCode::setFont);
         }
@@ -205,14 +220,14 @@ namespace halvoeGPU
         {
           m_helperGFX.setTextSize(in_size); // set for getTextBounds() atCPU
 
-          clearBuffer();
+          resetParameterBufferLength();
           addUInt8ToBuffer(in_size);
           return sendCommand(SerialGFXCommandCode::setTextSize);
         }
 
         bool sendSetTextColor(uint16_t in_color)
         {
-          clearBuffer();
+          resetParameterBufferLength();
           addUInt16ToBuffer(in_color);
           return sendCommand(SerialGFXCommandCode::setTextColor);
         }
@@ -221,22 +236,36 @@ namespace halvoeGPU
         {
           m_helperGFX.setCursor(in_x, in_y); // set for getTextBounds() atCPU
 
-          clearBuffer();
+          resetParameterBufferLength();
           addInt16ToBuffer(in_x);
           addInt16ToBuffer(in_y);
           return sendCommand(SerialGFXCommandCode::setCursor);
         }
 
+        bool sendPrint(const char* in_string)
+        {
+          resetParameterBufferLength();
+          addStringToBuffer(in_string);
+          return sendCommand(SerialGFXCommandCode::print);
+        }
+
+        bool sendPrintln(const char* in_string)
+        {
+          resetParameterBufferLength();
+          addStringToBuffer(in_string);
+          return sendCommand(SerialGFXCommandCode::println);
+        }
+
         bool sendPrint(const String& in_string)
         {
-          clearBuffer();
+          resetParameterBufferLength();
           addStringToBuffer(in_string);
           return sendCommand(SerialGFXCommandCode::print);
         }
 
         bool sendPrintln(const String& in_string)
         {
-          clearBuffer();
+          resetParameterBufferLength();
           addStringToBuffer(in_string);
           return sendCommand(SerialGFXCommandCode::println);
         }

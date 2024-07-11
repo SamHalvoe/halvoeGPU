@@ -8,9 +8,10 @@
   #define HALVOE_SERIAL_TYPE HardwareSerialIMXRT
 #else
   #error Invalid MCU!
-#endif // ARDUINO_ARCH_RP2040 / 
+#endif // ARDUINO_ARCH_RP2040
 
 #define HALVOE_GPU_DEBUG
+//#define HALVOE_GPU_DEBUG_ADD_STRING
 
 namespace halvoeGPU
 {
@@ -18,9 +19,10 @@ namespace halvoeGPU
   constexpr const uint16_t g_screenHeight = 240;
   constexpr const uint16_t g_colorCount = 256;
 
-  constexpr const unsigned long g_minFrameTimeMs = 4;
+  constexpr const unsigned long g_minFrameTimeMicros = 4000;
+  constexpr const unsigned long g_oneSecondInMicros = 1000000;
 
-  constexpr const size_t g_maxParameterBufferLength = 8192;
+  constexpr const size_t g_maxParameterBufferLength = 16384;
   constexpr const size_t g_zeroTerminatorLength = 1;
 
   enum class SerialGFXBaud : unsigned long

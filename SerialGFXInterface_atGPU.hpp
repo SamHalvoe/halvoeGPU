@@ -13,14 +13,14 @@ namespace halvoeGPU
   namespace atGPU
   {
     const pin_size_t READY_PIN = 24;
-    const size_t GPU_SERIAL_RECEIVE_FIFO_SIZE = 256;
+    const size_t GPU_SERIAL_RECEIVE_FIFO_SIZE = 1024;
 
     class SerialGFXInterface
     {
       private:
         HALVOE_SERIAL_TYPE& m_serial;
         DVIGFX8& m_dviGFX;
-        elapsedMillis m_timeSinceLastFrame;
+        elapsedMicros m_timeSinceLastFrame;
         bool m_isPrintFrameTimeEnabled = false;
         bool m_isPrintFPSEnabled = false;
 
@@ -66,7 +66,7 @@ namespace halvoeGPU
 
         void cmd_swap()
         {
-          if (m_timeSinceLastFrame < g_minFrameTimeMs) { return; }
+          if (m_timeSinceLastFrame < g_minFrameTimeMicros) { return; }
           if (m_isPrintFrameTimeEnabled) { printFrameTime(); }
           if (m_isPrintFPSEnabled) { printFPS(); }
           m_dviGFX.swap();
@@ -146,22 +146,21 @@ namespace halvoeGPU
 
         void printFPS()
         {
-          m_dviGFX.setTextColor(255);
-          String fps(1000 / getFrameTime());
+          String fps(g_oneSecondInMicros / getFrameTimeMicros());
           fps.concat(" FPS");
           uint16_t width = 0;
+          m_dviGFX.setTextColor(255, 0);
           m_dviGFX.getTextBounds(fps, 0, 0, nullptr, nullptr, &width, nullptr);
-          m_dviGFX.setCursor(320 - 5 - width, 5);
+          m_dviGFX.setCursor(320 - 5 - width, m_isPrintFrameTimeEnabled ? 15 : 5);
           m_dviGFX.print(fps);
         }
 
         void printFrameTime()
         {
-          m_dviGFX.setTextColor(255);
-          m_dviGFX.setCursor(320 - 45, m_isPrintFPSEnabled ? 15 : 5);
-          String frameTime(getFrameTime());
-          frameTime.concat(" ms");
+          String frameTime(getFrameTimeMicros());
+          frameTime.concat(" micros");
           uint16_t width = 0;
+          m_dviGFX.setTextColor(255, 0);
           m_dviGFX.getTextBounds(frameTime, 0, 0, nullptr, nullptr, &width, nullptr);
           m_dviGFX.setCursor(320 - 5 - width, 5);
           m_dviGFX.print(frameTime);
@@ -275,10 +274,10 @@ namespace halvoeGPU
           return true;
         }
 
-        unsigned long getFrameTime() const
+        unsigned long getFrameTimeMicros() const
         {
-          unsigned long frameTimeMs = m_timeSinceLastFrame;
-          return min(frameTimeMs, 1000UL); // we do not want to return a frame time greater than 1000
+          unsigned long frameTimeMicros = m_timeSinceLastFrame;
+          return min(frameTimeMicros, g_oneSecondInMicros); // we do not want to return a frame time greater than 1 second
         }
 
         void enablePrintFrameTime()
